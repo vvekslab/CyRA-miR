@@ -1,13 +1,18 @@
-# CyRAMIR (Cyclophosphamide Response Analyser using miRNA Expression)
+# CyRA-miR (Cyclophosphamide Response Analyser using miRNA Expression)
 
-CyRAMIR is a web-based tool designed to utilize expression profiles of specific microRNAs (miRNAs) from Cyclophosphamide-treated breast cancer patient samples. By leveraging an embedded EasyEnsembleClassifier (EEC) model, the tool accurately stratifies patients into two categories—responder and non-responder—and predicts their probability with a confidence score.
+CyRA-miR is a web-based tool designed to stratify breast cancer patients into two categories — cyclophosphamide responder and non-responder — with their probability in terms of confidence score, using expression profiles of specific microRNAs (miRNAs). This tool includes an embedded EasyEnsembleClassifier (EEC) model trained upon expression profiles of specific microRNAs (miRNAs) from Cyclophosphamide-treated breast cancer patient samples
 
-This tool aims to aid in chemotherapy drug response prediction and help optimize the selection of appropriate therapeutic regimens for patients with breast cancer, thereby assisting in the implementation of patient-specific precision medicine.
+This tool aims to aid in chemotherapy drug response prediction and help to optimise the selection of appropriate therapeutic regimens for patients with breast cancer, thereby assisting in the implementation of patient-specific precision medicine.
 
 ## Features
-* **Usage Flexibility**: This tool can be used in multiple ways. It can be used online or offline. All machine learning math and logic runs entirely in your local browser. No data is sent to any external servers, ensuring patient data privacy.
+* **Usage Flexibility**: This tool can be used in multiple ways. It can be used online or offline. The machine learning math and logic run entirely in your local browser. No data is sent to any external servers, ensuring patient data privacy.
 
 ## How to Use
+
+* **Use online**: Go to https://vvekslab.github.io/CyRA-miR/ and follow the procedure given below.
+* **Use online**: Download the index.html file. Open with any browser and follow the procedure given below.
+
+## Procedure 
 
 1. **Format your data**: Prepare your expression data in a CSV file. The file must contain the following 4 specific miRNAs along with their expression values (e.g., log2(CPM+1)).
 
@@ -27,7 +32,7 @@ This tool aims to aid in chemotherapy drug response prediction and help optimize
 ## Technical Details
 * **Model**: EasyEnsembleClassifier (EEC) ensemble of 20 decision trees.
 * **Frameworks**: Pure HTML, CSS (Vanilla), and JavaScript.
-* **Data parsing**: Integrated `PapaParse` library for robust, client-side CSV parsing.
+* **Data parsing**: Integrated `PapaParse` library for CSV parsing.
 
 ## Disclaimer
 > **Built for research use only.**
