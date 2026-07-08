@@ -1,0 +1,2556 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>miRNA Response Classifier — Predict Drug Responsiveness</title>
+  <meta name="description"
+    content="A web-based classifier tool that predicts drug responsiveness (Responder vs Non-Responder) from miRNA expression profiles." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    /* ===== CSS RESET & VARIABLES ===== */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+      --bg-card: rgba(255, 255, 255, 0.85);
+      --bg-glass: rgba(0, 0, 0, 0.02);
+      --border-glass: rgba(0, 0, 0, 0.08);
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --accent-cyan: #0891b2;
+      --accent-cyan-dim: rgba(8, 145, 178, 0.1);
+      --accent-purple: #7c3aed;
+      --accent-purple-dim: rgba(124, 58, 237, 0.1);
+      --accent-emerald: #059669;
+      --accent-emerald-dim: rgba(5, 150, 105, 0.1);
+      --accent-rose: #e11d48;
+      --accent-rose-dim: rgba(225, 29, 72, 0.08);
+      --accent-amber: #d97706;
+      --gradient-hero: linear-gradient(135deg, #f8fafc 0%, #ede9fe 50%, #f8fafc 100%);
+      --gradient-card: linear-gradient(135deg, rgba(8, 145, 178, 0.04), rgba(124, 58, 237, 0.04));
+      --gradient-responder: linear-gradient(135deg, #059669, #34d399);
+      --gradient-non-responder: linear-gradient(135deg, #e11d48, #fb7185);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.08);
+      --shadow-glow-cyan: 0 4px 20px rgba(8, 145, 178, 0.15);
+      --shadow-glow-purple: 0 4px 20px rgba(124, 58, 237, 0.15);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== ANIMATED BACKGROUND ===== */
+    .bg-mesh {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 600px 400px at 20% 20%, rgba(8, 145, 178, 0.06), transparent),
+        radial-gradient(ellipse 500px 500px at 80% 60%, rgba(124, 58, 237, 0.06), transparent),
+        radial-gradient(ellipse 400px 300px at 50% 90%, rgba(5, 150, 105, 0.05), transparent);
+      animation: meshDrift 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes meshDrift {
+      0% {
+        background-position: 0% 0%, 100% 50%, 50% 100%;
+      }
+
+      100% {
+        background-position: 30% 20%, 70% 80%, 60% 70%;
+      }
+    }
+
+    /* ===== LAYOUT ===== */
+    .app-container {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 1.5rem 4rem;
+    }
+
+    /* ===== HEADER ===== */
+    .hero {
+      text-align: center;
+      padding: 2.5rem 0 1.25rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: var(--accent-cyan-dim);
+      border: 1px solid rgba(8, 145, 178, 0.2);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(0.7);
+      }
+    }
+
+    .hero h1,
+    .hero h2 {
+      font-size: clamp(1.4rem, 4vw, 1.6rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: #0891b2;
+      margin-top: 0;
+      margin-bottom: 0.25rem;
+    }
+
+    .hero h2 {
+      margin-bottom: 0.75rem;
+    }
+
+    .hero p {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      max-width: 780px;
+      margin: 0 auto;
+      line-height: 1.7;
+      text-align: justify;
+    }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .card:hover {
+      border-color: rgba(0, 0, 0, 0.12);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+    }
+
+    .card-icon.cyan {
+      background: var(--accent-cyan-dim);
+      color: var(--accent-cyan);
+    }
+
+    .card-icon.purple {
+      background: var(--accent-purple-dim);
+      color: var(--accent-purple);
+    }
+
+    .card-icon.emerald {
+      background: var(--accent-emerald-dim);
+      color: var(--accent-emerald);
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .card-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ===== STEP INDICATORS ===== */
+    .steps-bar {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      margin: 0 0 1.25rem;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .step-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-glass);
+      color: var(--text-muted);
+      transition: all var(--transition-smooth);
+    }
+
+    .step-circle.active {
+      background: var(--accent-cyan-dim);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.2);
+    }
+
+    .step-circle.done {
+      background: var(--accent-emerald-dim);
+      border-color: var(--accent-emerald);
+      color: var(--accent-emerald);
+    }
+
+    .step-connector {
+      width: 60px;
+      height: 2px;
+      background: var(--border-glass);
+      margin: 0 4px;
+      transition: background var(--transition-smooth);
+    }
+
+    .step-connector.done {
+      background: var(--accent-emerald);
+    }
+
+    /* ===== DROP ZONE ===== */
+    .drop-zone {
+      border: 2px dashed rgba(0, 0, 0, 0.12);
+      border-radius: var(--radius-lg);
+      padding: 1rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drop-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gradient-card);
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--accent-cyan);
+      background: rgba(8, 145, 178, 0.04);
+    }
+
+    .drop-zone:hover::before,
+    .drop-zone.dragover::before {
+      opacity: 1;
+    }
+
+    .drop-zone-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .drop-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      opacity: 0.6;
+    }
+
+    .drop-zone h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    .drop-zone p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .drop-zone .browse-btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 8px 20px;
+      border-radius: 999px;
+      background: var(--accent-cyan-dim);
+      border: 1px solid rgba(8, 145, 178, 0.3);
+      color: var(--accent-cyan);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .drop-zone .browse-btn:hover {
+      background: rgba(8, 145, 178, 0.18);
+      box-shadow: var(--shadow-glow-cyan);
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    /* ===== FILE INFO ===== */
+    .file-info {
+      display: none;
+      margin-top: 1.25rem;
+      padding: 1rem 1.25rem;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+    }
+
+    .file-info.show {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .file-icon {
+      font-size: 1.4rem;
+    }
+
+    .file-details {
+      flex: 1;
+    }
+
+    .file-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .file-size {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .file-remove {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: color var(--transition-fast);
+      padding: 4px;
+    }
+
+    .file-remove:hover {
+      color: var(--accent-rose);
+    }
+
+    /* ===== PREVIEW TABLE ===== */
+    .preview-section {
+      display: none;
+      margin-top: 1.5rem;
+    }
+
+    .preview-section.show {
+      display: block;
+    }
+
+    .preview-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.75rem;
+    }
+
+    .data-table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-glass);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-glass);
+    }
+
+    .data-table th {
+      background: rgba(0, 0, 0, 0.03);
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .data-table td {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .data-table tr:hover td {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    .mirna-name {
+      color: var(--accent-cyan);
+      font-weight: 500;
+    }
+
+    .expr-value {
+      color: var(--text-primary);
+    }
+
+    /* ===== PREDICT BUTTON ===== */
+    .predict-section {
+      display: none;
+      margin-top: 2rem;
+      text-align: center;
+    }
+
+    .predict-section.show {
+      display: block;
+    }
+
+    .btn-predict {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 36px;
+      border: none;
+      border-radius: 999px;
+      background: #0891b2;
+      color: #ffffff;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      overflow: hidden;
+    }
+
+    .btn-predict:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(8, 145, 178, 0.3);
+      opacity: 0.85;
+    }
+
+    .btn-predict:active {
+      transform: translateY(0);
+      opacity: 0.75;
+    }
+
+    .btn-predict span {
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-predict.loading {
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    /* ===== SPINNER ===== */
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-predict.loading .spinner {
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ===== RESULTS ===== */
+    .results-section {
+      display: none;
+      margin-top: 2.5rem;
+      animation: fadeSlideUp 0.6s ease-out;
+    }
+
+    .results-section.show {
+      display: block;
+    }
+
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Verdict banner */
+    .verdict-banner {
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .verdict-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.08;
+    }
+
+    .verdict-banner.responder {
+      background: rgba(5, 150, 105, 0.06);
+      border: 1px solid rgba(5, 150, 105, 0.2);
+    }
+
+    .verdict-banner.responder::before {
+      background: var(--gradient-responder);
+    }
+
+    .verdict-banner.non-responder {
+      background: rgba(225, 29, 72, 0.05);
+      border: 1px solid rgba(225, 29, 72, 0.2);
+    }
+
+    .verdict-banner.non-responder::before {
+      background: var(--gradient-non-responder);
+    }
+
+    .verdict-emoji {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .verdict-label {
+      font-size: 1.5rem;
+      font-weight: 800;
+      position: relative;
+      z-index: 1;
+      margin-bottom: 0.25rem;
+    }
+
+    .verdict-banner.responder .verdict-label {
+      color: var(--accent-emerald);
+    }
+
+    .verdict-banner.non-responder .verdict-label {
+      color: var(--accent-rose);
+    }
+
+    .verdict-confidence {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Probability bars */
+    .prob-bars {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .prob-item {
+      padding: 1.25rem 1.5rem;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+    }
+
+    .prob-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .prob-class {
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .prob-class .indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .prob-class .indicator.emerald {
+      background: var(--accent-emerald);
+    }
+
+    .prob-class .indicator.rose {
+      background: var(--accent-rose);
+    }
+
+    .prob-pct {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .prob-pct.emerald {
+      color: var(--accent-emerald);
+    }
+
+    .prob-pct.rose {
+      color: var(--accent-rose);
+    }
+
+    .prob-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+
+    .prob-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 0%;
+    }
+
+    .prob-fill.emerald {
+      background: var(--gradient-responder);
+    }
+
+    .prob-fill.rose {
+      background: var(--gradient-non-responder);
+    }
+
+
+
+    /* ===== DISCLAIMER ===== */
+    .disclaimer {
+      margin-top: 2rem;
+      padding: 1rem 1.25rem;
+      background: rgba(217, 119, 6, 0.06);
+      border: 1px solid rgba(217, 119, 6, 0.2);
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .disclaimer-icon {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ===== FORMAT HELP ===== */
+    .format-section {
+      margin-top: 2rem;
+    }
+
+    .format-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 6px 0;
+      transition: color var(--transition-fast);
+    }
+
+    .format-toggle:hover {
+      color: var(--text-secondary);
+    }
+
+    .format-toggle .chevron {
+      transition: transform var(--transition-fast);
+      font-size: 0.7rem;
+    }
+
+    .format-toggle.open .chevron {
+      transform: rotate(90deg);
+    }
+
+    .format-details {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 1.25rem;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+    }
+
+    .format-details.show {
+      display: block;
+    }
+
+    .format-details pre {
+      background: #f1f5f9;
+      color: #334155;
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      margin: 0.75rem 0;
+      line-height: 1.6;
+    }
+
+    .download-sample {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 0.75rem;
+      padding: 6px 14px;
+      background: var(--accent-purple-dim);
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      border-radius: 999px;
+      color: var(--accent-purple);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all var(--transition-fast);
+    }
+
+    .download-sample:hover {
+      background: rgba(124, 58, 237, 0.18);
+    }
+
+    /* ===== ERROR ===== */
+    .error-msg {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(225, 29, 72, 0.06);
+      border: 1px solid rgba(225, 29, 72, 0.2);
+      border-radius: var(--radius-md);
+      font-size: 0.84rem;
+      color: var(--accent-rose);
+    }
+
+    .error-msg.show {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      text-align: center;
+      padding: 3rem 0 1rem;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+    }
+
+    .footer a {
+      color: var(--accent-cyan);
+      text-decoration: none;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 640px) {
+      .app-container {
+        padding: 1.25rem 1rem 3rem;
+      }
+
+      .card {
+        padding: 1.25rem;
+      }
+
+      .drop-zone {
+        padding: 2rem 1.25rem;
+      }
+
+      .step-connector {
+        width: 32px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-mesh"></div>
+
+
+  <div class="app-container">
+    <!-- Hero -->
+    <header class="hero">
+      <h1>Cyclophosphamide Response Analyser using miRNA Expression</h1>
+      <h2>(CyRA-miR)</h2>
+      <p>Using EasyEnsembleClassifier (EEC) model, this CyRAMIR tool utilizes expression profiles of microRNAs
+        (miRNAs) from the Cyclophosphamide treated breast cancer patients samples to accurately stratify
+        patients into two categories: responder and non-responder and predict their probability in terms of
+        confidence score.
+        This tool will aid in chemotherapy drug response prediction and help optimising the selection
+        of appropriate therapeutic regimen for patients with breast cancer, thereby implementing
+        patient-specific precision medicine.</p>
+    </header>
+
+    <!-- Step indicators -->
+    <div class="steps-bar">
+      <div class="step-item">
+        <div class="step-circle active" id="step1">1</div>
+      </div>
+      <div class="step-connector" id="conn1"></div>
+      <div class="step-item">
+        <div class="step-circle" id="step2">2</div>
+      </div>
+      <div class="step-connector" id="conn2"></div>
+      <div class="step-item">
+        <div class="step-circle" id="step3">3</div>
+      </div>
+    </div>
+
+    <!-- Upload card -->
+    <section class="card" id="uploadCard">
+      <div class="card-header">
+        <div class="card-icon cyan">📂</div>
+        <div>
+          <div class="card-title">Upload Expression Data</div>
+          <div class="card-subtitle">CSV file • 4 miRNAs × expression values</div>
+        </div>
+      </div>
+
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-content">
+          <h3>Drag &amp; drop your CSV file here</h3>
+          <p>or click to browse your files</p>
+          <div class="browse-btn">Browse Files</div>
+        </div>
+        <input type="file" id="fileInput" accept=".csv" />
+      </div>
+
+      <div class="file-info" id="fileInfo">
+        <div class="file-icon">📄</div>
+        <div class="file-details">
+          <div class="file-name" id="fileName">—</div>
+          <div class="file-size" id="fileSize">—</div>
+        </div>
+        <button class="file-remove" id="fileRemove" title="Remove file">&times;</button>
+      </div>
+
+      <div class="error-msg" id="errorMsg">
+        <span>⚠️</span>
+        <span id="errorText"></span>
+      </div>
+
+      <div class="preview-section" id="previewSection">
+        <div class="preview-label">Parsed Input</div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="previewTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>miRNA</th>
+                <th>Expression</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="predict-section" id="predictSection">
+        <button class="btn-predict" id="btnPredict" onclick="runPrediction()">
+          <span>Run Prediction</span>
+          <div class="spinner" id="spinner"></div>
+        </button>
+      </div>
+
+      <!-- Format help -->
+      <div class="format-section">
+        <button class="format-toggle" id="formatToggle" onclick="toggleFormat()">
+          <span class="chevron">▶</span>
+          CSV Format Guide
+        </button>
+        <div class="format-details" id="formatDetails">
+          <p>Your CSV should have <strong>4 data rows</strong> (one per miRNA) with at least two columns: the miRNA
+            name (as mentioned below) and its expression value.</p>
+          <pre>miRNA,Expression
+hsa-miR-136-3p,4.25
+hsa-miR-21-5p,18.45
+hsa-miR-1266-5p,3.88
+hsa-miR-193a-3p,4.12</pre>
+          <p>The first column is the miRNA name and the second column is the numeric expression level e.g., log2
+            (CPM+1).</p>
+          <a class="download-sample" id="downloadSample" href="#" onclick="downloadSampleCSV(event)">
+            ⬇ Download Sample CSV
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section class="results-section" id="resultsSection">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon emerald">📊</div>
+          <div>
+            <div class="card-title">Prediction Results</div>
+            <div class="card-subtitle">Model output with confidence scores</div>
+          </div>
+        </div>
+
+        <!-- Verdict -->
+        <div class="verdict-banner" id="verdictBanner">
+          <div class="verdict-emoji" id="verdictEmoji"></div>
+          <div class="verdict-label" id="verdictLabel"></div>
+          <div class="verdict-confidence" id="verdictConf"></div>
+        </div>
+
+        <!-- Probability bars -->
+        <div class="prob-bars">
+          <div class="prob-item">
+            <div class="prob-header">
+              <div class="prob-class">
+                <span class="indicator emerald"></span>
+                Responder
+              </div>
+              <div class="prob-pct emerald" id="probResp">0%</div>
+            </div>
+            <div class="prob-track">
+              <div class="prob-fill emerald" id="barResp"></div>
+            </div>
+          </div>
+          <div class="prob-item">
+            <div class="prob-header">
+              <div class="prob-class">
+                <span class="indicator rose"></span>
+                Non‑Responder
+              </div>
+              <div class="prob-pct rose" id="probNonResp">0%</div>
+            </div>
+            <div class="prob-track">
+              <div class="prob-fill rose" id="barNonResp"></div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="disclaimer">
+          <span class="disclaimer-icon">⚡</span>
+          <span><strong>Model Active:</strong> This prediction uses the trained EasyEnsembleClassifier (EEC) ensemble of
+            20 decision trees (optimized classification threshold: 0.73375).</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Built for research use only.
+    </footer>
+  </div>
+
+  <script>
+    /* ===================================================
+       STATE
+    =================================================== */
+    let parsedData = null;  // [{ name: 'hsa-miR-21-5p', value: 12.45 }, ...]
+
+    /* ===================================================
+       FILE HANDLING
+    =================================================== */
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) handleFile(fileInput.files[0]);
+    });
+    document.getElementById('fileRemove').addEventListener('click', resetUpload);
+
+    function handleFile(file) {
+      hideError();
+      hideResults();
+
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        showError('Please upload a .csv file.');
+        return;
+      }
+
+      // Show file info
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileSize').textContent = formatBytes(file.size);
+      document.getElementById('fileInfo').classList.add('show');
+
+      const reader = new FileReader();
+      reader.onload = e => parseCSV(e.target.result);
+      reader.readAsText(file);
+    }
+
+    function resetUpload() {
+      fileInput.value = '';
+      document.getElementById('fileInfo').classList.remove('show');
+      document.getElementById('previewSection').classList.remove('show');
+      document.getElementById('predictSection').classList.remove('show');
+      hideError();
+      hideResults();
+      parsedData = null;
+      updateSteps(1);
+    }
+
+    /* ===================================================
+       CSV PARSING
+    =================================================== */
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/).filter(l => l.trim() !== '');
+      if (lines.length < 2) {
+        showError('CSV must have a header row plus at least 4 data rows.');
+        return;
+      }
+
+      // Detect separator
+      const sep = lines[0].includes('\t') ? '\t' : ',';
+
+      // Skip header
+      const dataLines = lines.slice(1);
+
+      const inputMap = {};
+      for (let i = 0; i < dataLines.length; i++) {
+        const cols = dataLines[i].split(sep).map(c => c.trim());
+        if (cols.length < 2 || !cols[0]) continue;
+        const name = cols[0];
+        const value = parseFloat(cols[1]);
+        if (isNaN(value)) {
+          showError(`Row ${i + 1}: "${cols[1]}" is not a valid number.`);
+          return;
+        }
+        inputMap[name.toLowerCase()] = value;
+      }
+
+      const requiredFeatures = [
+        "hsa-miR-136-3p",
+        "hsa-miR-21-5p",
+        "hsa-miR-1266-5p",
+        "hsa-miR-193a-3p"
+      ];
+
+      const data = [];
+      const missing = [];
+      for (const feat of requiredFeatures) {
+        const featLower = feat.toLowerCase();
+        if (featLower in inputMap) {
+          data.push({ name: feat, value: inputMap[featLower] });
+        } else {
+          missing.push(feat);
+        }
+      }
+
+      if (missing.length > 0) {
+        showError(`Missing required miRNA(s): ${missing.join(', ')}. Please upload a file with all 4 target miRNAs.`);
+        return;
+      }
+
+      parsedData = data;
+      renderPreview(data);
+      document.getElementById('previewSection').classList.add('show');
+      document.getElementById('predictSection').classList.add('show');
+      updateSteps(2);
+    }
+
+    function renderPreview(data) {
+      const tbody = document.getElementById('previewBody');
+      tbody.innerHTML = data.map((d, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td class="mirna-name">${escHtml(d.name)}</td>
+          <td class="expr-value">${d.value.toFixed(4)}</td>
+        </tr>
+      `).join('');
+    }
+
+    /* ===================================================
+       PREDICTION
+    =================================================== */
+    // --- TRAINED EASY ENSEMBLE CLASSIFIER MODEL ---
+    const EEC_MODEL = {
+      "threshold": 0.73375,
+      "features": [
+        "hsa-miR-136-3p",
+        "hsa-miR-1266-5p",
+        "hsa-miR-21-5p",
+        "hsa-miR-193a-3p"
+      ],
+      "trees": [
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            -1
+          ],
+          "features": [
+            1,
+            3,
+            -2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            4.088882088661194,
+            3.13089382648468,
+            -2.0,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.25,
+              0.75
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.1,
+              0.9
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            -1
+          ],
+          "features": [
+            3,
+            2,
+            -2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            4.514796495437622,
+            17.86797523498535,
+            -2.0,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.75,
+              0.25
+            ],
+            [
+              0.4,
+              0.6
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            3,
+            2,
+            -2,
+            -2,
+            2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            4.345668792724609,
+            17.747024536132812,
+            -2.0,
+            -2.0,
+            18.200544357299805,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8,
+              0.2
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.125,
+              0.875
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.5,
+              0.5
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            -1
+          ],
+          "features": [
+            3,
+            3,
+            -2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            4.345668792724609,
+            3.727800130844116,
+            -2.0,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8181818181818182,
+              0.18181818181818182
+            ],
+            [
+              0.3333333333333333,
+              0.6666666666666666
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            -1,
+            3,
+            -1,
+            -1
+          ],
+          "children_right": [
+            2,
+            -1,
+            4,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            -2,
+            2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.242163300514221,
+            -2.0,
+            18.14403247833252,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.3076923076923077,
+              0.6923076923076923
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.6666666666666666,
+              0.3333333333333333
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            1,
+            1,
+            -2,
+            -2,
+            3,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            2.8960628509521484,
+            1.832453191280365,
+            -2.0,
+            -2.0,
+            4.280759572982788,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.7777777777777778,
+              0.2222222222222222
+            ],
+            [
+              0.3333333333333333,
+              0.6666666666666666
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.2222222222222222,
+              0.7777777777777778
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.0,
+              1.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            3,
+            2,
+            -2,
+            -2,
+            2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            4.345668792724609,
+            17.749287605285645,
+            -2.0,
+            -2.0,
+            18.296194076538086,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8,
+              0.2
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.125,
+              0.875
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.5,
+              0.5
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            -1,
+            3,
+            -1,
+            -1
+          ],
+          "children_right": [
+            2,
+            -1,
+            4,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            -2,
+            1,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.281826376914978,
+            -2.0,
+            4.07771360874176,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.18181818181818182,
+              0.8181818181818182
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            -1
+          ],
+          "features": [
+            1,
+            3,
+            -2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.8788117170333862,
+            4.501196622848511,
+            -2.0,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.35714285714285715,
+              0.6428571428571429
+            ],
+            [
+              0.625,
+              0.375
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            -1,
+            3,
+            -1,
+            -1
+          ],
+          "children_right": [
+            2,
+            -1,
+            4,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            -2,
+            1,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.1818978786468506,
+            -2.0,
+            4.1497074365615845,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.25,
+              0.75
+            ],
+            [
+              0.1,
+              0.9
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            3,
+            2,
+            -2,
+            -2,
+            2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            4.295418739318848,
+            17.896080017089844,
+            -2.0,
+            -2.0,
+            18.296194076538086,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8,
+              0.2
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.125,
+              0.875
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.5,
+              0.5
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            -1
+          ],
+          "features": [
+            2,
+            0,
+            -2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            18.45256519317627,
+            3.8053133487701416,
+            -2.0,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.35714285714285715,
+              0.6428571428571429
+            ],
+            [
+              0.7142857142857143,
+              0.2857142857142857
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            -1,
+            3,
+            -1,
+            -1
+          ],
+          "children_right": [
+            2,
+            -1,
+            4,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            -2,
+            0,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.242883801460266,
+            -2.0,
+            4.638543367385864,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.3076923076923077,
+              0.6923076923076923
+            ],
+            [
+              0.1,
+              0.9
+            ],
+            [
+              1.0,
+              0.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            2,
+            -2,
+            -2,
+            3,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.961274743080139,
+            18.14403247833252,
+            -2.0,
+            -2.0,
+            4.164791584014893,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8,
+              0.2
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.125,
+              0.875
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.0,
+              1.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            0,
+            -2,
+            -2,
+            3,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.9559415578842163,
+            3.069485306739807,
+            -2.0,
+            -2.0,
+            4.331372976303101,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8,
+              0.2
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.6666666666666666,
+              0.3333333333333333
+            ],
+            [
+              0.125,
+              0.875
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.0,
+              1.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            0,
+            -2,
+            -2,
+            0,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.879786491394043,
+            3.2022489309310913,
+            -2.0,
+            -2.0,
+            4.509092807769775,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8,
+              0.2
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.6,
+              0.4
+            ],
+            [
+              0.125,
+              0.875
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.5,
+              0.5
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            -1,
+            3,
+            -1,
+            -1
+          ],
+          "children_right": [
+            2,
+            -1,
+            4,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            -2,
+            3,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.213588237762451,
+            -2.0,
+            4.331372976303101,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.3076923076923077,
+              0.6923076923076923
+            ],
+            [
+              0.6666666666666666,
+              0.3333333333333333
+            ],
+            [
+              0.0,
+              1.0
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            0,
+            -2,
+            -2,
+            2,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.911284565925598,
+            3.158289074897766,
+            -2.0,
+            -2.0,
+            18.191075325012207,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8,
+              0.2
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.6666666666666666,
+              0.3333333333333333
+            ],
+            [
+              0.125,
+              0.875
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.5,
+              0.5
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            0,
+            -2,
+            -2,
+            0,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.9559415578842163,
+            3.158289074897766,
+            -2.0,
+            -2.0,
+            4.482056379318237,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.7777777777777778,
+              0.2222222222222222
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.6666666666666666,
+              0.3333333333333333
+            ],
+            [
+              0.2222222222222222,
+              0.7777777777777778
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.6666666666666666,
+              0.3333333333333333
+            ]
+          ]
+        },
+        {
+          "children_left": [
+            1,
+            2,
+            -1,
+            -1,
+            5,
+            -1,
+            -1
+          ],
+          "children_right": [
+            4,
+            3,
+            -1,
+            -1,
+            6,
+            -1,
+            -1
+          ],
+          "features": [
+            0,
+            0,
+            -2,
+            -2,
+            3,
+            -2,
+            -2
+          ],
+          "thresholds": [
+            3.911284565925598,
+            3.428893208503723,
+            -2.0,
+            -2.0,
+            5.108780384063721,
+            -2.0,
+            -2.0
+          ],
+          "node_probs": [
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.8,
+              0.2
+            ],
+            [
+              0.6,
+              0.4
+            ],
+            [
+              1.0,
+              0.0
+            ],
+            [
+              0.125,
+              0.875
+            ],
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.5,
+              0.5
+            ]
+          ]
+        }
+      ]
+    };
+
+    function evaluateTree(tree, features) {
+      let node = 0;
+      while (tree.children_left[node] !== -1) {
+        let featIdx = tree.features[node];
+        let val = features[featIdx];
+        let thresh = tree.thresholds[node];
+        if (val <= thresh) {
+          node = tree.children_left[node];
+        } else {
+          node = tree.children_right[node];
+        }
+      }
+      return tree.node_probs[node]; // [prob_class_0, prob_class_1]
+    }
+
+    function predictFromModel(features) {
+      let sumProbs = [0, 0];
+      const numTrees = EEC_MODEL.trees.length;
+      for (let i = 0; i < numTrees; i++) {
+        const probs = evaluateTree(EEC_MODEL.trees[i], features);
+        sumProbs[0] += probs[0];
+        sumProbs[1] += probs[1];
+      }
+
+      // Compute raw probability of class 1 (Non-Responder)
+      const rawProbNonResponder = sumProbs[1] / numTrees;
+      const threshold = EEC_MODEL.threshold;
+
+      // Piece-wise linear calibration to map Youden threshold to 0.5 boundary in UI
+      let calibratedNonResponder;
+      if (rawProbNonResponder < threshold) {
+        calibratedNonResponder = (rawProbNonResponder / threshold) * 0.5;
+      } else {
+        calibratedNonResponder = 0.5 + ((rawProbNonResponder - threshold) / (1.0 - threshold)) * 0.5;
+      }
+
+      return {
+        responder: 1.0 - calibratedNonResponder,
+        nonResponder: calibratedNonResponder
+      };
+    }
+
+    async function runPrediction() {
+      if (!parsedData || parsedData.length < 4) return;
+
+      const btn = document.getElementById('btnPredict');
+      btn.classList.add('loading');
+
+      // Simulate network / compute latency for UX
+      await sleep(1200);
+
+      const features = parsedData.map(d => d.value);
+      const result = predictFromModel(features);
+
+      btn.classList.remove('loading');
+      displayResults(result);
+      updateSteps(3);
+    }
+
+    /* ===================================================
+       DISPLAY RESULTS
+    =================================================== */
+    function displayResults(result) {
+      const section = document.getElementById('resultsSection');
+      const banner = document.getElementById('verdictBanner');
+      const isResp = result.responder >= 0.5;
+
+      // Verdict banner
+      banner.className = 'verdict-banner ' + (isResp ? 'responder' : 'non-responder');
+      document.getElementById('verdictEmoji').textContent = isResp ? '✅' : '❌';
+      document.getElementById('verdictLabel').textContent = isResp ? 'Responder' : 'Non‑Responder';
+      const topProb = Math.max(result.responder, result.nonResponder);
+      document.getElementById('verdictConf').textContent =
+        `Confidence: ${(topProb * 100).toFixed(1)}%`;
+
+      // Probability bars (animate after a tick)
+      document.getElementById('probResp').textContent = (result.responder * 100).toFixed(1) + '%';
+      document.getElementById('probNonResp').textContent = (result.nonResponder * 100).toFixed(1) + '%';
+
+      const barResp = document.getElementById('barResp');
+      const barNonResp = document.getElementById('barNonResp');
+      barResp.style.width = '0%';
+      barNonResp.style.width = '0%';
+
+      section.classList.add('show');
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          barResp.style.width = (result.responder * 100).toFixed(1) + '%';
+          barNonResp.style.width = (result.nonResponder * 100).toFixed(1) + '%';
+        });
+      });
+
+    }
+
+    function hideResults() {
+      document.getElementById('resultsSection').classList.remove('show');
+    }
+
+    /* ===================================================
+       STEP INDICATORS
+    =================================================== */
+    function updateSteps(current) {
+      for (let i = 1; i <= 3; i++) {
+        const circle = document.getElementById('step' + i);
+        circle.classList.remove('active', 'done');
+        if (i < current) {
+          circle.classList.add('done');
+          circle.textContent = '✓';
+        } else if (i === current) {
+          circle.classList.add('active');
+          circle.textContent = i;
+        } else {
+          circle.textContent = i;
+        }
+      }
+      document.getElementById('conn1').classList.toggle('done', current > 1);
+      document.getElementById('conn2').classList.toggle('done', current > 2);
+    }
+
+    /* ===================================================
+       FORMAT TOGGLE
+    =================================================== */
+    function toggleFormat() {
+      const btn = document.getElementById('formatToggle');
+      const det = document.getElementById('formatDetails');
+      btn.classList.toggle('open');
+      det.classList.toggle('show');
+    }
+
+    /* ===================================================
+       SAMPLE CSV DOWNLOAD
+    =================================================== */
+    function downloadSampleCSV(e) {
+      e.preventDefault();
+      const csv = `miRNA,Expression\nhsa-miR-136-3p,4.25\nhsa-miR-21-5p,18.45\nhsa-miR-1266-5p,3.88\nhsa-miR-193a-3p,4.12`;
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'sample_mirna_input.csv';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    /* ===================================================
+       UTILITIES
+    =================================================== */
+    function showError(msg) {
+      document.getElementById('errorText').textContent = msg;
+      document.getElementById('errorMsg').classList.add('show');
+    }
+    function hideError() {
+      document.getElementById('errorMsg').classList.remove('show');
+    }
+    function formatBytes(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+      return (b / 1048576).toFixed(1) + ' MB';
+    }
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  </script>
+</body>
+
+</html>
