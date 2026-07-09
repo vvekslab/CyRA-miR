@@ -10,7 +10,7 @@ This tool aims to aid in chemotherapy drug response prediction and help to optim
 ## How to Use
 
 * **Use online**: Go to https://vvekslab.github.io/CyRA-miR/ and follow the procedure given below.
-* **Use online**: Download the index.html file. Open with any browser and follow the procedure given below.
+* **Use offline**: Download the index.html file. Open with any browser and follow the procedure given below.
 
 ## Procedure 
 
